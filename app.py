@@ -67,20 +67,34 @@ if uploaded_files:
     if action_type != 'All':
         details = details[details['ActionTypeName'] == action_type]
 
-    # 散布図の作成
+    # 散布図とヒートマップの切り替え
+    show_heatmap = st.checkbox('Show Heatmap')
+
+    # KDEバンド幅調整用のスライダーを追加
+    if show_heatmap:
+        bw_adjust = st.slider('Adjust Heatmap Bandwidth', 0.1, 1.0, 0.4)
+
+
+    # プロットの作成
     fig, ax = plt.subplots(figsize=(12, 8))
 
-    # 起点の散布図
-    sns.scatterplot(x=details['x_coord'], y=details['y_coord'], hue=details['ActionResultName'], palette='bright', ax=ax)
-    # 終点の散布図
-    sns.scatterplot(x=details['x_coord_end'], y=details['y_coord_end'], hue=details['ActionResultName'], palette='bright', ax=ax, marker='X', s=100, legend=False)
+    if show_heatmap:
+        # ヒートマップの作成
+        sns.kdeplot(x=details['x_coord'], y=details['y_coord'], fill=True, cmap='Reds', ax=ax, bw_adjust=bw_adjust)
+        ax.set_title(f"Heatmap for {team_name} - {action_name} Actions")
+    else:
+        # 散布図の作成
+        sns.scatterplot(x=details['x_coord'], y=details['y_coord'], hue=details['ActionResultName'], palette='bright', ax=ax)
+        sns.scatterplot(x=details['x_coord_end'], y=details['y_coord_end'], hue=details['ActionResultName'], palette='bright', ax=ax, marker='X', s=100, legend=False)
 
-    # 起点と終点を線で結ぶ（終了点が(0, 0)でない場合）
-    for _, row in details.iterrows():
-        if not (row['x_coord_end'] == 0 and row['y_coord_end'] == 0):
-            ax.plot([row['x_coord'], row['x_coord_end']], [row['y_coord'], row['y_coord_end']], color='grey', linestyle='--')
+        # 起点と終点を線で結ぶ（終了点が(0, 0)でない場合）
+        for _, row in details.iterrows():
+            if not (row['x_coord_end'] == 0 and row['y_coord_end'] == 0):
+                ax.plot([row['x_coord'], row['x_coord_end']], [row['y_coord'], row['y_coord_end']], color='grey', linestyle='--')
 
-    ax.set_title(f"Scatter Plot for {team_name} - {action_name} Actions")
+        ax.set_title(f"Scatter Plot for {team_name} - {action_name} Actions")
+
+
     ax.set_xlabel('X Coordinate')
     ax.set_ylabel('Y Coordinate')
     ax.set_xlim(0, 100)  # フィールドの長さ
@@ -97,11 +111,12 @@ if uploaded_files:
     ax.axvline(x=78, color='grey', linestyle='--')
     ax.axvline(x=50, color='black', linestyle='-')
 
-    # 凡例の設定
-    handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles[:len(details['ActionResultName'].unique())], labels[:len(details['ActionResultName'].unique())])
+    # 凡例の設定（ヒートマップの場合は表示しない）
+    if not show_heatmap:
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[:len(details['ActionResultName'].unique())], labels[:len(details['ActionResultName'].unique())])
 
-    # Streamlitで散布図を表示
+    # Streamlitでプロットを表示
     st.pyplot(fig)
 
     # プレイヤーごとのアクション結果のカウントを表示
@@ -121,3 +136,4 @@ if uploaded_files:
     # アクションの結果を表示
     st.write(f"Results for {action_type} Actions:")
     st.write(details['ActionResultName'].value_counts())
+
