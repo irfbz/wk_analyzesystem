@@ -67,15 +67,15 @@ if uploaded_files:
     if action_type != 'All':
         details = details[details['ActionTypeName'] == action_type]
 
+    # 表示する情報の選択（ActionResultName または ActionTypeName）
+    display_option = st.selectbox('Select Display Option', ['ActionResultName', 'ActionTypeName'])
+
     # 散布図とヒートマップの切り替え
     show_heatmap = st.checkbox('Show Heatmap')
 
     # KDEバンド幅調整用のスライダーを追加
     if show_heatmap:
         bw_adjust = st.slider('Adjust Heatmap Bandwidth', 0.1, 1.0, 0.4)
-
-    # 表示する情報の選択（ActionResultName または ActionTypeName）
-    display_option = st.selectbox('Select Display Option', ['ActionResultName', 'ActionTypeName'])
 
     # プロットの作成
     fig, ax = plt.subplots(figsize=(12, 8))
