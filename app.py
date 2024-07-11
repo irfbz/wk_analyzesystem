@@ -36,11 +36,11 @@ if uploaded_files:
         data = data[data['fileName'] == selected_game]
 
     # アクション名の不要な項目をフィルタリング
-    exclude_actions = ['Defensive Exits', 'Defensive Action', 'Counter Attack', 'Goal Kick', 'Lineout Take', 'Period', 'Ref Review', 'Sub In', 'Sub Out', 'Card']
+    exclude_actions = ['Defensive Exits', 'Defensive Action', 'Counter Attack', 'Lineout Take', 'Period', 'Ref Review', 'Sub In', 'Sub Out', 'Card']
     filtered_action_names = [action for action in data['actionName'].unique() if action not in exclude_actions and pd.notna(action)]
 
     # アクション名の選択順序を指定
-    sorted_action_names = ['Kick', 'Attacking Qualities', 'Penalty Conceded', 'Tackle', 'Missed Tackle', 'Carry', 'Ruck', 'Ruck OOA', 'Playmaker Options', 'Attacking 22 Entry', 'Possession', 'Restart', 'Collection', 'Pass', 'Turnover', 'Sequences', 'Scrum', 'Lineout Throw', 'Try', 'Maul']
+    sorted_action_names = ['Kick', 'Attacking Qualities', 'Penalty Conceded', 'Goal Kick', 'Tackle', 'Missed Tackle', 'Carry', 'Ruck', 'Ruck OOA', 'Playmaker Options', 'Attacking 22 Entry', 'Possession', 'Restart', 'Collection', 'Pass', 'Turnover', 'Sequences', 'Scrum', 'Lineout Throw', 'Try', 'Maul']
     filtered_action_names = [action for action in sorted_action_names if action in filtered_action_names]
 
     # アクション名の選択
