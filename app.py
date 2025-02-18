@@ -28,12 +28,20 @@ if uploaded_files:
 
     # チームの選択
     team_name = st.selectbox('Select Team', data['teamName'].unique())
+    # 選択したチームを除外するかどうかのチェックボックス
+    exclude_team = st.checkbox("Exclude selected team data?")
 
     # 試合の選択
     game_names = ['All'] + list(data['fileName'].unique())
     selected_game = st.selectbox('Select Game', game_names)
     if selected_game != 'All':
         data = data[data['fileName'] == selected_game]
+
+    # チームフィルタリングの適用（除外する場合と通常の場合）
+    if exclude_team:
+        team_filtered_data = data[data['teamName'] != team_name]
+    else:
+        team_filtered_data = data[data['teamName'] == team_name]
 
     # アクション名の不要な項目をフィルタリング
     exclude_actions = ['Defensive Exits', 'Defensive Action', 'Counter Attack', 'Lineout Take', 'Period', 'Ref Review', 'Sub In', 'Sub Out', 'Card']
@@ -46,10 +54,10 @@ if uploaded_files:
     # アクション名の選択
     action_name = st.selectbox('Select Action', filtered_action_names)
 
-    # フィルタリング
-    filtered_data = data[(data['teamName'] == team_name) & (data['actionName'] == action_name)]
+    # チームとアクション名でフィルタリング
+    filtered_data = team_filtered_data[team_filtered_data['actionName'] == action_name]
 
-    # 通常のアクションの処理
+    # 通常のアクションの処理（選手名でのフィルタリング）
     player_name = st.selectbox('Select Player (optional)', ['All'] + list(filtered_data['playerName'].unique()))
     if player_name != 'All':
         filtered_data = filtered_data[filtered_data['playerName'] == player_name]
