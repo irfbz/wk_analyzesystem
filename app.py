@@ -107,7 +107,7 @@ if uploaded_files:
     ax.set_xlabel('X Coordinate')
     ax.set_ylabel('Y Coordinate')
     ax.set_xlim(0, 100)  # フィールドの長さ
-    ax.set_ylim(0, 68)  # フィールドの幅
+    ax.set_ylim(68, 0)   # フィールドの幅
 
     # カスタムx軸ラベルを設定
     ax.set_xticks([0, 22, 40, 50, 60, 78, 100])
