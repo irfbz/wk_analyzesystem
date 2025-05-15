@@ -31,11 +31,20 @@ if uploaded_files:
     # 選択したチームを除外するかどうかのチェックボックス
     exclude_team = st.checkbox("Exclude selected team data?")
 
-    # 試合の選択
-    game_names = ['All'] + list(data['fileName'].unique())
-    selected_game = st.selectbox('Select Game', game_names)
-    if selected_game != 'All':
-        data = data[data['fileName'] == selected_game]
+    # 試合の選択（複数選択可能に変更）
+    game_names = list(data['fileName'].unique())
+    select_all = st.checkbox("Select all games", value=True)
+    if select_all:
+        selected_games = game_names
+    else:
+        selected_games = st.multiselect('Select Games', options=game_names)
+    # 選択した試合でフィルタリング
+    data = data[data['fileName'].isin(selected_games)]
+        
+    if data.empty:
+        st.warning("No data selected")
+        st.stop()    
+
 
     # チームフィルタリングの適用（除外する場合と通常の場合）
     if exclude_team:
