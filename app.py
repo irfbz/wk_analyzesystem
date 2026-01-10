@@ -15,7 +15,7 @@ if uploaded_files:
         df = pd.read_csv(file)
         df['fileName'] = file.name
         data_frames.append(df)
-    
+
     # すべてのデータフレームを統合
     data = pd.concat(data_frames, ignore_index=True)
 
@@ -26,25 +26,22 @@ if uploaded_files:
         st.write("Unique action result names:", data['ActionResultName'].unique())
         st.write("Unique action type names:", data['ActionTypeName'].unique())
 
+    # 試合の選択（複数選択可能）
+    game_names = list(data['fileName'].unique())
+    selected_games = st.multiselect('Select Games', options=game_names, default=game_names)
+
+    # 選択した試合でフィルタリング
+    data = data[data['fileName'].isin(selected_games)]
+
+    # データが空なら処理中断
+    if data.empty:
+        st.warning("選択された試合にはデータが含まれていません。別の試合を選んでください。")
+        st.stop()
+
     # チームの選択
     team_name = st.selectbox('Select Team', data['teamName'].unique())
     # 選択したチームを除外するかどうかのチェックボックス
     exclude_team = st.checkbox("Exclude selected team data?")
-
-    # 試合の選択（複数選択可能に変更）
-    game_names = list(data['fileName'].unique())
-    select_all = st.checkbox("Select all games", value=True)
-    if select_all:
-        selected_games = game_names
-    else:
-        selected_games = st.multiselect('Select Games', options=game_names)
-    # 選択した試合でフィルタリング
-    data = data[data['fileName'].isin(selected_games)]
-        
-    if data.empty:
-        st.warning("No data selected")
-        st.stop()    
-
 
     # チームフィルタリングの適用（除外する場合と通常の場合）
     if exclude_team:
@@ -154,3 +151,162 @@ if uploaded_files:
     # アクションの結果を表示
     st.write(f"Results for {action_type} Actions by {display_option}:")
     st.write(details[display_option].value_counts())
+
+    # -----------------------------
+    # qualifier5Name に "Movement" を含む行を抽出し、actionName と一緒に表示
+    # -----------------------------
+    st.subheader("Attack Area")
+
+    if 'qualifier5Name' in data.columns:
+        movement_rows = data[data['qualifier5Name'].str.contains("Movement", na=False)]
+
+        if exclude_team:
+            movement_rows = movement_rows[movement_rows['teamName'] != team_name]
+        else:
+            movement_rows = movement_rows[movement_rows['teamName'] == team_name]
+
+        # Movement位置の分類（Close / Mid / Tight / Wide / N/A）
+        def classify_movement_zone(q5):
+            q5 = str(q5).lower()
+            if 'close' in q5:
+                return 'Close'
+            elif 'mid' in q5:
+                return 'Mid'
+            elif 'tight' in q5:
+                return 'Tight'
+            elif 'wide' in q5:
+                return 'Wide'
+            else:
+                return 'N/A'
+
+        movement_rows['ZoneCategory'] = movement_rows['qualifier5Name'].apply(classify_movement_zone)
+        movement_table = movement_rows[['actionName', 'qualifier5Name', 'ZoneCategory']].drop_duplicates()
+
+        # Movement付きアクションの開始座標のみ表示（色を4色に制限して自動割当）
+
+        fig_mv, ax_mv = plt.subplots(figsize=(12, 8))
+
+        # Movementマップ用：Actionは4種類に限定
+        action_colors = {
+            'Lineout Throw': 'orange',
+            'Maul': 'blue',
+            'Ruck': 'green',
+            'Scrum': 'purple'
+        }
+        default_action_color = 'gray'
+
+        # 固定のAction用カラーパレット（Movementマップ専用）
+        # action_colors は上で定義済み
+        # Define marker styles per actionName
+        marker_styles = {
+            'Ruck': 'o',      # Circle
+            'Maul': 'X',      # X
+            'Carry': '^',     # Triangle
+            'Pass': 's',      # Square
+            # Add more if needed
+        }
+
+        for _, uniq in movement_table.iterrows():
+            if uniq['actionName'] not in action_colors:
+                continue
+
+            action = uniq['actionName']
+            if action not in action_colors:
+                action = 'Other'
+
+            src = movement_rows[
+                (movement_rows['actionName'] == uniq['actionName']) &
+                (movement_rows['qualifier5Name'] == uniq['qualifier5Name'])
+            ].iloc[0]
+
+            x_start = src['x_coord']
+            y_start = src['y_coord']
+            zone = uniq['ZoneCategory']
+            color = action_colors.get(action, default_action_color)
+            marker = marker_styles.get(action, 'o')  # Default to 'o'
+
+            ax_mv.scatter(x_start, y_start, color=color, marker=marker, s=60, label=f"{action} - {zone}")
+
+        # Create separate legends for actionName (color) and ZoneCategory (marker)
+        import matplotlib.lines as mlines
+
+        # 1. Action legend based on color（4種類のみ）
+        action_handles = [
+            mlines.Line2D(
+                [],
+                [],
+                color=color,
+                marker='o',
+                linestyle='None',
+                markersize=10,
+                label=action
+            )
+            for action, color in action_colors.items()
+        ]
+
+        action_legend = ax_mv.legend(
+            handles=action_handles,
+            title='Action (Color)',
+            loc='upper right'
+        )
+        ax_mv.add_artist(action_legend)
+
+        # 2. Zone legend based on marker shape
+        unique_zones = movement_rows['ZoneCategory'].unique()
+        marker_styles = {
+            'Close': 'o',
+            'Mid': '^',
+            'Tight': 's',
+            'Wide': 'X',
+            'N/A': 'D'
+        }
+        zone_handles = [
+            mlines.Line2D([], [], color='black', marker=marker_styles.get(zone, 'o'), linestyle='None', markersize=10, label=zone)
+            for zone in unique_zones
+        ]
+        ax_mv.legend(handles=zone_handles, title='Zone (Marker)', loc='lower right')
+
+        ax_mv.set_title("Start Points of Movement Actions by Zone Category")
+        ax_mv.set_xlabel('X Coordinate')
+        ax_mv.set_ylabel('Y Coordinate')
+        ax_mv.set_xlim(0, 100)
+        ax_mv.set_ylim(68, 0)
+        ax_mv.set_xticks([0, 22, 40, 50, 60, 78, 100])
+        ax_mv.set_xticklabels(['0m', '22m', '10m', 'Half', '10m', '22m', '0m'])
+        ax_mv.axvline(x=22, color='grey', linestyle='--')
+        ax_mv.axvline(x=40, color='grey', linestyle='--')
+        ax_mv.axvline(x=60, color='grey', linestyle='--')
+        ax_mv.axvline(x=78, color='grey', linestyle='--')
+        ax_mv.axvline(x=50, color='black', linestyle='-')
+
+        st.pyplot(fig_mv)
+
+        # -----------------------------
+        zone_colors = {
+            'Close': 'orange',
+            'Mid': 'blue',
+            'Tight': 'green',
+            'Wide': 'purple',
+            'N/A': 'gray'
+        }
+        # ZoneCategoryごとの円グラフ（Movementアクションに限定）
+        # -----------------------------
+        zone_counts = movement_rows['ZoneCategory'].value_counts()
+        fig_zone, ax_zone = plt.subplots()
+        ax_zone.pie(zone_counts, labels=zone_counts.index, autopct='%1.1f%%', colors=[zone_colors.get(z, 'gray') for z in zone_counts.index])
+        ax_zone.set_title("ZoneCategory Breakdown")
+        st.pyplot(fig_zone)
+
+        # -----------------------------
+        # actionNameごとのZoneCategory件数を表で表示
+        # -----------------------------
+        zone_summary_table = movement_rows.groupby(['actionName', 'ZoneCategory']).size().unstack(fill_value=0)
+        st.dataframe(zone_summary_table)
+
+        # -----------------------------
+        # Attack Area（Movement一覧）
+        # -----------------------------
+        st.subheader("Attack Area")
+        st.write(movement_table)
+    else:
+        st.info("'qualifier5Name' column is not found in the dataset.")
