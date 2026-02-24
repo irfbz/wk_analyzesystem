@@ -139,6 +139,7 @@ if uploaded_files:
 
         filtered_rows = movement_rows[movement_rows['ZoneCategory'] != 'N/A']
 
+
         fig_mv, ax_mv = plt.subplots(figsize=(12, 8))
 
         marker_styles = {
@@ -191,25 +192,41 @@ if uploaded_files:
 
         st.pyplot(fig_mv)
 
-        zone_counts = filtered_rows['ZoneCategory'].value_counts()
-        fig_zone, ax_zone = plt.subplots()
-        ax_zone.pie(zone_counts, labels=zone_counts.index, autopct='%1.1f%%', colors=[zone_colors.get(z, 'gray') for z in zone_counts.index])
-        st.pyplot(fig_zone)
-
-        # --- Zone Summary Table（N/Aを除外してマップと一致させる）---
-        valid_zone_order = ['Close', 'Mid', 'Tight', 'Wide']
-
-        zone_summary_table = (
-            filtered_rows
-            .groupby(['actionName', 'ZoneCategory'])
-            .size()
-            .unstack(fill_value=0)
-            .reindex(columns=valid_zone_order, fill_value=0)
-            .sort_index()
+        # --- Pie Chart Filter（All / Scrum / Lineout Throw） ---
+        pie_filter = st.selectbox(
+            "Pie Chart Filter",
+            options=["All", "Scrum", "Lineout Throw"],
+            index=0
         )
 
-        st.subheader("Zone Summary Table (Filtered Movement Actions)")
-        st.dataframe(zone_summary_table.reset_index())
+        if pie_filter == "All":
+            pie_rows = filtered_rows
+        else:
+            pie_rows = filtered_rows[filtered_rows["actionName"] == pie_filter]
+
+        # --- Pie Chart（順番固定：Tight → Close → Mid → Wide、12時スタート・時計回り） ---
+        zone_order = ['Tight', 'Close', 'Mid', 'Wide']
+        zone_counts = (
+            pie_rows['ZoneCategory']
+            .value_counts()
+            .reindex(zone_order, fill_value=0)
+        )
+
+        # Guard for empty data before pie chart
+        if pie_rows.empty:
+            st.info("選択された条件（Pie Chart Filter）に該当するデータがありません。")
+        else:
+            fig_zone, ax_zone = plt.subplots()
+            ax_zone.pie(
+                zone_counts,
+                labels=zone_counts.index,
+                autopct='%1.1f%%',
+                colors=[zone_colors.get(z, 'gray') for z in zone_counts.index],
+                startangle=90,        # 12時スタート
+                counterclock=False    # 時計回り
+            )
+            st.pyplot(fig_zone)
+
 
     else:
         st.info("'qualifier5Name' column is not found in the dataset.")
